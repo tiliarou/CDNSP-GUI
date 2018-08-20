@@ -5,7 +5,7 @@
 # Design inspiration: Lucas Rey's GUI (https://darkumbra.net/forums/topic/174470-app-cdnsp-gui-v105-download-nsp-gamez-using-a-gui/)
 # Thanks to the developer(s) that worked on CDNSP_Next for the cert fix!
 # Thanks to the help of devloper NighTime, kvn1351, gizmomelb, theLorknessMonster
-# CDNSP - GUI - Bob - v4.1
+# CDNSP - GUI - Bob - v4.1.1
 import sys
 import time
 import random
@@ -176,18 +176,21 @@ except ImportError:
     from bs4 import BeautifulSoup
 
 try:
-    import pyopenssl
+    import ssl
 except:
-    pass
+    install_module("pyopenssl")
+    import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context # Thanks to user rdmrocha on Github
 
 req_file = ["CDNSPconfig.json", "keys.txt", "nx_tls_client_cert.pem", "titlekeys.txt", "titlekeys_overwrite.txt"]
 try:
     for file in req_file:
         check_req_file(file)
     print(_("Everything looks good!"))
-except:
-    print(_("Unable to get required files! Check your internet connection"))
-    
+except Exception as e:
+    print(_("Unable to get required files! Check your internet connection: [{}]".format(str(e))))
+
 # CDNSP script
 
 import argparse
@@ -2010,10 +2013,13 @@ depending on how many games you have."))
                     tid = info.split(",")[0].strip()
                     ver = info.split(",")[1].strip()
                     if tid in known_ver:
-                        if int(known_ver[tid]) > int(ver):
-                            if tid.endswith("00"):
-                                tid = "{}000".format(tid[0:13])
-                            updates_tid.append(tid)
+                        try:
+                            if int(known_ver[tid]) > int(ver):
+                                if tid.endswith("00"):
+                                    tid = "{}000".format(tid[0:13])
+                                updates_tid.append(tid)
+                        except Exception as e:
+                            print("Tid: {} has caused an error, it has the version of {}.\nError: {}".format(tid, ver, e))
             else:
                 file = open(file_path, "w")
                 file.close()
@@ -2218,19 +2224,19 @@ depending on how many games you have."))
 
             for game_name, game_key in info_name.items():
                 if game_key == "description":
-                    description += "{}: {}\n\n".format(game_name, game_info_json[tid]["{}".format(game_key)]\
+                    description += "{}: {}\n\n".format(_(game_name), game_info_json[tid]["{}".format(game_key)]\
                                                        .replace("\n\n", " ").replace("\n", "").strip())
                 elif game_key == "Game_size":
                     try:
                         game_size_temp = bytes2human(float(game_info_json[tid]["{}".format(game_key)].replace("\n", "").strip()))
                         game_size_temp_size = float(game_size_temp[0:-3])
-                        description += "{}: {:.2f} {}\n".format(game_name, game_size_temp_size, game_size_temp[-2:])
+                        description += "{}: {:.2f} {}\n".format(_(game_name), game_size_temp_size, game_size_temp[-2:])
                     except:
-                        description += "{}: Unable to get game size\n".format(game_name)
+                        description += "{}: {}\n".format(_(game_name), _("Unable to get game size"))
                 elif game_key == "US_price":
-                    description += "{}: ${}\n".format(game_name, game_info_json[tid]["{}".format(game_key)].replace("\n", "").strip())
+                    description += "{}: ${}\n".format(_(game_name), game_info_json[tid]["{}".format(game_key)].replace("\n", "").strip())
                 else:
-                    description += "{}: {}\n".format(game_name, game_info_json[tid]["{}".format(game_key)].replace("\n", "").strip())
+                    description += "{}: {}\n".format(_(game_name), game_info_json[tid]["{}".format(game_key)].replace("\n", "").strip())
                                                                          
             self.game_text.delete("1.0", END)
             self.game_text.insert(INSERT, description)
@@ -2243,8 +2249,8 @@ depending on how many games you have."))
 
             counter = 3
             for game_name, game_key in info_name.items():
-                self.game_text.tag_add("{}".format(game_name), "{}.0".format(counter), "{}.{}".format(counter, len(game_name)))
-                self.game_text.tag_config("{}".format(game_name), font=("Open Sans", 10, "bold"), spacing2="2", spacing3="3")
+                self.game_text.tag_add("{}".format(_(game_name)), "{}.0".format(counter), "{}.{}".format(counter, len(_(game_name))))
+                self.game_text.tag_config("{}".format(_(game_name)), font=("Open Sans", 10, "bold"), spacing2="2", spacing3="3")
                 if counter == 3:
                     counter += 2
                 else:
@@ -3508,8 +3514,14 @@ Malaysian: fadzly#4390"""
                 file.close()
             print("\nUpdating version list...")
             for tid in installed:
-                print(tid)
-                known_ver[tid] = str(get_versions(tid)[-1])
+                if tid.endswith("00"):
+                    updateTid = "{}800".format(tid[:13])
+                else:
+                    updateTid = tid
+                latest_ver = str(get_versions(updateTid)[-1])
+
+                print("Tid: {}, latest version: {}".format(updateTid, latest_ver))
+                known_ver[tid] = latest_ver
                 
             ver_file = open("Config/Version_info.json", "w", encoding="utf8")
             json.dump(known_ver, ver_file, indent=4)
@@ -3586,7 +3598,7 @@ def main():
                             titleKey_list[titleID_list.index(_tid)] = _tkey
 
     root = Tk()
-    root.title("CDNSP GUI - Bobv4.1")
+    root.title("CDNSP GUI - Bobv4.1.1")
     Application(root, titleID_list, titleKey_list, title_list, dbURL)
 
     root.mainloop()
